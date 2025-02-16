@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Error as MongooseError } from 'mongoose';
 import { IRequestWithUser } from '../types/express';
-import { TodoMethod } from '../types/cards';
+import { HttpStatusCode, TodoMethod } from '../types/enums';
 import Card from '../models/card';
 
 export const getCards = async (req: Request, res: Response) => {
@@ -9,7 +9,7 @@ export const getCards = async (req: Request, res: Response) => {
     const cards = await Card.find({});
     res.send({ data: cards });
   } catch {
-    res.status(500).send({ message: 'Ошибка сервера.' });
+    res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
   }
 };
 
@@ -19,12 +19,12 @@ export const createCard = async (req: IRequestWithUser, res: Response) => {
 
   try {
     const newCard = await Card.create({ name, link, owner });
-    res.status(201).send({ data: newCard });
+    res.status(HttpStatusCode.Created).send({ data: newCard });
   } catch (err) {
     if (err instanceof MongooseError.ValidationError) {
-      res.status(400).send({ message: err.message });
+      res.status(HttpStatusCode.BadRequestError).send({ message: err.message });
     } else {
-      res.status(500).send({ message: 'Ошибка сервера.' });
+      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
     }
   }
 };
@@ -43,11 +43,11 @@ export const deleteCard = async (req: Request, res: Response) => {
     res.send({ data: cardForDelete });
   } catch (err) {
     if (err instanceof MongooseError.CastError) {
-      res.status(400).send({ message: 'Передан некорректный _id карточки.' });
+      res.status(HttpStatusCode.BadRequestError).send({ message: 'Передан некорректный _id карточки.' });
     } else if (err instanceof Error && err.name === 'NotFoundError') {
-      res.status(404).send({ message: err.message });
+      res.status(HttpStatusCode.NotFoundError).send({ message: err.message });
     } else {
-      res.status(500).send({ message: 'Ошибка сервера.' });
+      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
     }
   }
 };
@@ -73,11 +73,11 @@ const toggleLike = async (
     res.send({ data: updatedCard });
   } catch (err) {
     if (err instanceof MongooseError.CastError) {
-      res.status(400).send({ message: 'Передан некорректный _id карточки.' });
+      res.status(HttpStatusCode.BadRequestError).send({ message: 'Передан некорректный _id карточки.' });
     } else if (err instanceof Error && err.name === 'NotFoundError') {
-      res.status(404).send({ message: err.message });
+      res.status(HttpStatusCode.NotFoundError).send({ message: err.message });
     } else {
-      res.status(500).send({ message: 'Ошибка сервера.' });
+      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
     }
   }
 };

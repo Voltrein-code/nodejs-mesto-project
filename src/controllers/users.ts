@@ -2,13 +2,14 @@ import { Request, Response } from 'express';
 import { Error as MongooseError } from 'mongoose';
 import { IRequestWithUser } from '../types/express';
 import User from '../models/user';
+import { HttpStatusCode } from '../types/enums';
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const users = await User.find({});
     res.send({ data: users });
   } catch {
-    res.status(500).send({ message: 'Ошибка сервера.' });
+    res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
   }
 };
 
@@ -28,12 +29,12 @@ export const getUserById = async (req: Request, res: Response) => {
   } catch (err) {
     if (err instanceof MongooseError.CastError) {
       res
-        .status(400)
+        .status(HttpStatusCode.BadRequestError)
         .send({ message: 'Передан некорректный _id пользователя.' });
     } else if (err instanceof Error && err.name === 'NotFoundError') {
-      res.status(404).send({ message: err.message });
+      res.status(HttpStatusCode.NotFoundError).send({ message: err.message });
     } else {
-      res.status(500).send({ message: 'Ошибка сервера.' });
+      res.status(HttpStatusCode.NotFoundError).send({ message: 'Ошибка сервера.' });
     }
   }
 };
@@ -43,12 +44,12 @@ export const createUser = async (req: Request, res: Response) => {
 
   try {
     const user = await User.create({ name, about, avatar });
-    res.status(201).send({ data: user });
+    res.status(HttpStatusCode.Created).send({ data: user });
   } catch (err) {
     if (err instanceof MongooseError.ValidationError) {
-      res.status(400).send({ message: err.message });
+      res.status(HttpStatusCode.BadRequestError).send({ message: err.message });
     } else {
-      res.status(500).send({ message: 'Ошибка сервера.' });
+      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
     }
   }
 };
@@ -73,21 +74,21 @@ const updateUser = async (req: IRequestWithUser, res: Response) => {
   } catch (err) {
     if (err instanceof MongooseError.CastError) {
       res
-        .status(400)
+        .status(HttpStatusCode.BadRequestError)
         .send({ message: 'Передан некорректный _id пользователя.' });
     } else if (err instanceof MongooseError.ValidationError) {
-      res.status(400).send({ message: err.message });
+      res.status(HttpStatusCode.BadRequestError).send({ message: err.message });
     } else if (err instanceof Error && err.name === 'NotFoundError') {
-      res.status(404).send({ message: err.message });
+      res.status(HttpStatusCode.NotFoundError).send({ message: err.message });
     } else {
-      res.status(500).send({ message: 'Ошибка сервера.' });
+      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
     }
   }
 };
 
 export const updateUserAvatar = (req: IRequestWithUser, res: Response) => {
   if (!req.body.avatar) {
-    res.status(400).send({
+    res.status(HttpStatusCode.BadRequestError).send({
       message: 'Переданы некорректные данные при обновлении аватара.',
     });
     return;
@@ -100,7 +101,7 @@ export const updateUserInfo = (req: IRequestWithUser, res: Response) => {
   const { name, about } = req.body;
 
   if (!name || !about) {
-    res.status(400).send({
+    res.status(HttpStatusCode.BadRequestError).send({
       message: 'Переданы некорректные данные при обновлении профиля.',
     });
     return;
