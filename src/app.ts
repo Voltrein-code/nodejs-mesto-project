@@ -22,7 +22,4 @@ app.use((req: IRequestWithUser, res: Response, next: NextFunction) => {
 
 app.use(routes);
 
-app.listen(+PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Приложение запущено на порту: ${PORT}`);
-});
+app.listen(+PORT);
