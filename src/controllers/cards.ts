@@ -60,7 +60,7 @@ const toggleLike = async (
   const { cardId } = req.params;
 
   try {
-    const updatedCard = Card.findByIdAndUpdate(
+    const updatedCard = await Card.findByIdAndUpdate(
       cardId,
       { [todo]: { likes: req.user?._id } },
       { new: true },
