@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Error as MongooseError } from 'mongoose';
+import bcrypt from 'bcryptjs';
 import { IRequestWithUser } from '../types/express';
 import User from '../models/user';
 import { HttpStatusCode } from '../types/enums';
@@ -40,10 +41,15 @@ export const getUserById = async (req: Request, res: Response) => {
 };
 
 export const createUser = async (req: Request, res: Response) => {
-  const { name, about, avatar } = req.body;
+  const {
+    name, about, avatar, email, password,
+  } = req.body;
 
   try {
-    const user = await User.create({ name, about, avatar });
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      name, about, avatar, email, password: hash,
+    });
     res.status(HttpStatusCode.Created).send({ data: user });
   } catch (err) {
     if (err instanceof MongooseError.ValidationError) {
