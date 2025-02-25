@@ -64,4 +64,4 @@ userSchema.methods.deletePassword = function deletePassword() {
   return obj;
 };
 
-export default mongoose.model<IUser>('user', userSchema);
+export default mongoose.model<IUser, IUserModel>('user', userSchema);

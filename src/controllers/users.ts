@@ -1,46 +1,42 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { Error as MongooseError } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { IRequestWithUser } from '../types/express';
 import User from '../models/user';
 import { HttpStatusCode } from '../types/enums';
+import NotFoundError from '../errors/notFoundError';
+import BadRequestError from '../errors/badRequestError';
+import { JWT_SECRET } from '../constans/config';
 
-export const getUsers = async (req: Request, res: Response) => {
+export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const users = await User.find({});
     res.send({ data: users });
-  } catch {
-    res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
+  } catch (err) {
+    next(err);
   }
 };
 
-export const getUserById = async (req: Request, res: Response) => {
+export const getUserById = async (req: Request, res: Response, next: NextFunction) => {
   const { userId } = req.params;
 
   try {
     const user = await User.findById(userId).orFail(() => {
-      const customError = new Error(
-        'Пользователь по указанному _id не найден.',
-      );
-      customError.name = 'NotFoundError';
-      throw customError;
+      throw new NotFoundError('Пользователь по указанному _id не найден.');
     });
 
     res.send({ data: user });
   } catch (err) {
     if (err instanceof MongooseError.CastError) {
-      res
-        .status(HttpStatusCode.BadRequestError)
-        .send({ message: 'Передан некорректный _id пользователя.' });
-    } else if (err instanceof Error && err.name === 'NotFoundError') {
-      res.status(HttpStatusCode.NotFoundError).send({ message: err.message });
+      next(new BadRequestError('Передан некорректный _id пользователя.'));
     } else {
-      res.status(HttpStatusCode.NotFoundError).send({ message: 'Ошибка сервера.' });
+      next(err);
     }
   }
 };
 
-export const createUser = async (req: Request, res: Response) => {
+export const createUser = async (req: Request, res: Response, next: NextFunction) => {
   const {
     name, about, avatar, email, password,
   } = req.body;
@@ -53,14 +49,31 @@ export const createUser = async (req: Request, res: Response) => {
     res.status(HttpStatusCode.Created).send({ data: user });
   } catch (err) {
     if (err instanceof MongooseError.ValidationError) {
-      res.status(HttpStatusCode.BadRequestError).send({ message: err.message });
+      next(new BadRequestError(err.message));
     } else {
-      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
+      next(err);
     }
   }
 };
 
-const updateUser = async (req: IRequestWithUser, res: Response) => {
+export const login = async (req: Request, res:Response, next: NextFunction) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findUserByCredentials(email, password);
+    const token = jwt.sign({ _id: user._id }, JWT_SECRET);
+
+    res.cookie('jwt', token, {
+      maxAge: 86400, // 1 день
+      httpOnly: true,
+      sameSite: true,
+    }).send({ data: user.deletePassword() });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateUser = async (req: IRequestWithUser, res: Response, next: NextFunction) => {
   const currentUserId = req.user?._id;
   const { body } = req;
 
@@ -69,49 +82,37 @@ const updateUser = async (req: IRequestWithUser, res: Response) => {
       new: true,
       runValidators: true,
     }).orFail(() => {
-      const customError = new Error(
-        'Пользователь по указанному _id не найден.',
-      );
-      customError.name = 'NotFoundError';
-      throw customError;
+      throw new NotFoundError('Пользователь по указанному _id не найден.');
     });
 
     res.send({ data: updatedUser });
   } catch (err) {
     if (err instanceof MongooseError.CastError) {
-      res
-        .status(HttpStatusCode.BadRequestError)
-        .send({ message: 'Передан некорректный _id пользователя.' });
+      next(new BadRequestError('Передан некорректный _id пользователя.'));
     } else if (err instanceof MongooseError.ValidationError) {
-      res.status(HttpStatusCode.BadRequestError).send({ message: err.message });
-    } else if (err instanceof Error && err.name === 'NotFoundError') {
-      res.status(HttpStatusCode.NotFoundError).send({ message: err.message });
+      next(new BadRequestError(err.message));
     } else {
-      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
+      next(err);
     }
   }
 };
 
-export const updateUserAvatar = (req: IRequestWithUser, res: Response) => {
+export const updateUserAvatar = (req: IRequestWithUser, res: Response, next: NextFunction) => {
   if (!req.body.avatar) {
-    res.status(HttpStatusCode.BadRequestError).send({
-      message: 'Переданы некорректные данные при обновлении аватара.',
-    });
+    next(new BadRequestError('Переданы некорректные данные при обновлении аватара.'));
     return;
   }
 
-  updateUser(req, res);
+  updateUser(req, res, next);
 };
 
-export const updateUserInfo = (req: IRequestWithUser, res: Response) => {
+export const updateUserInfo = (req: IRequestWithUser, res: Response, next: NextFunction) => {
   const { name, about } = req.body;
 
   if (!name || !about) {
-    res.status(HttpStatusCode.BadRequestError).send({
-      message: 'Переданы некорректные данные при обновлении профиля.',
-    });
+    next(new BadRequestError('Переданы некорректные данные при обновлении профиля.'));
     return;
   }
 
-  updateUser(req, res);
+  updateUser(req, res, next);
 };

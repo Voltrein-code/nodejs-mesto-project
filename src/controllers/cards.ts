@@ -1,19 +1,22 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { Error as MongooseError } from 'mongoose';
 import { IRequestWithUser } from '../types/express';
 import { HttpStatusCode, TodoMethod } from '../types/enums';
 import Card from '../models/card';
+import BadRequestError from '../errors/badRequestError';
+import NotFoundError from '../errors/notFoundError';
+import ForbiddenError from '../errors/forbiddenError';
 
-export const getCards = async (req: Request, res: Response) => {
+export const getCards = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const cards = await Card.find({});
     res.send({ data: cards });
-  } catch {
-    res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
+  } catch (err) {
+    next(err);
   }
 };
 
-export const createCard = async (req: IRequestWithUser, res: Response) => {
+export const createCard = async (req: IRequestWithUser, res: Response, next: NextFunction) => {
   const owner = req.user?._id;
   const { name, link } = req.body;
 
@@ -22,32 +25,32 @@ export const createCard = async (req: IRequestWithUser, res: Response) => {
     res.status(HttpStatusCode.Created).send({ data: newCard });
   } catch (err) {
     if (err instanceof MongooseError.ValidationError) {
-      res.status(HttpStatusCode.BadRequestError).send({ message: err.message });
+      next(new BadRequestError(err.message));
     } else {
-      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
+      next(err);
     }
   }
 };
 
-export const deleteCard = async (req: Request, res: Response) => {
+export const deleteCard = async (req: IRequestWithUser, res: Response, next: NextFunction) => {
   const { cardId } = req.params;
 
   try {
     const cardForDelete = await Card.findById(cardId).orFail(() => {
-      const customError = new Error('Карточка с указанным _id не найдена.');
-      customError.name = 'NotFoundError';
-      throw customError;
+      throw new NotFoundError('Карточка с указанным _id не найдена.');
     });
+
+    if (cardForDelete.owner.toString() !== req.user?._id) {
+      throw new ForbiddenError('Карточка не пренадлежит текущему пользователю, удаление не доступно');
+    }
 
     await Card.deleteOne({ _id: cardForDelete.id });
     res.send({ data: cardForDelete });
   } catch (err) {
     if (err instanceof MongooseError.CastError) {
-      res.status(HttpStatusCode.BadRequestError).send({ message: 'Передан некорректный _id карточки.' });
-    } else if (err instanceof Error && err.name === 'NotFoundError') {
-      res.status(HttpStatusCode.NotFoundError).send({ message: err.message });
+      next(new BadRequestError('Передан некорректный _id карточки.'));
     } else {
-      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
+      next(err);
     }
   }
 };
@@ -55,6 +58,7 @@ export const deleteCard = async (req: Request, res: Response) => {
 const toggleLike = async (
   req: IRequestWithUser,
   res: Response,
+  next: NextFunction,
   todo: TodoMethod,
 ) => {
   const { cardId } = req.params;
@@ -65,26 +69,22 @@ const toggleLike = async (
       { [todo]: { likes: req.user?._id } },
       { new: true },
     ).orFail(() => {
-      const customError = new Error('Карточка с указанным _id не найдена.');
-      customError.name = 'NotFoundError';
-      throw customError;
+      throw new NotFoundError('Карточка с указанным _id не найдена.');
     });
 
     res.send({ data: updatedCard });
   } catch (err) {
     if (err instanceof MongooseError.CastError) {
-      res.status(HttpStatusCode.BadRequestError).send({ message: 'Передан некорректный _id карточки.' });
-    } else if (err instanceof Error && err.name === 'NotFoundError') {
-      res.status(HttpStatusCode.NotFoundError).send({ message: err.message });
+      next(new BadRequestError('Передан некорректный _id карточки.'));
     } else {
-      res.status(HttpStatusCode.ServerError).send({ message: 'Ошибка сервера.' });
+      next(err);
     }
   }
 };
 
-export const likeCard = (req: IRequestWithUser, res: Response) => {
-  toggleLike(req, res, TodoMethod.ADD);
+export const likeCard = (req: IRequestWithUser, res: Response, next: NextFunction) => {
+  toggleLike(req, res, next, TodoMethod.ADD);
 };
-export const dislikeCard = (req: IRequestWithUser, res: Response) => {
-  toggleLike(req, res, TodoMethod.REMOVE);
+export const dislikeCard = (req: IRequestWithUser, res: Response, next: NextFunction) => {
+  toggleLike(req, res, next, TodoMethod.REMOVE);
 };
