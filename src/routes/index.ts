@@ -1,15 +1,24 @@
-import { Router, Request, Response } from 'express';
+import {
+  Router, Request, Response, NextFunction,
+} from 'express';
+import NotFoundError from '../errors/notFoundError';
 import userRouter from './users';
 import cardRouter from './cards';
-import { HttpStatusCode } from '../types/enums';
+import { validateCredentials, validateUser } from '../middlewares/validation';
+import { createUser, login } from '../controllers/users';
+import auth from '../middlewares/auth';
 
 const router = Router();
 
+router.post('/signup', validateUser, createUser);
+router.post('/signin', validateCredentials, login);
+
+router.use(auth);
 router.use('/users', userRouter);
 router.use('/cards', cardRouter);
 
-router.use((req: Request, res: Response) => {
-  res.status(HttpStatusCode.NotFoundError).send({ message: 'Маршрут не найден.' });
+router.use((req: Request, res: Response, next: NextFunction) => {
+  next(new NotFoundError('Маршрут не найден.'));
 });
 
 export default router;

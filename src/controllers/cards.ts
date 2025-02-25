@@ -18,6 +18,11 @@ export const getCards = async (req: Request, res: Response, next: NextFunction) 
 
 export const createCard = async (req: IRequestWithUser, res: Response, next: NextFunction) => {
   const owner = req.user?._id;
+
+  if (!owner) {
+    next(new BadRequestError('Не передан id для установки владельца карточки.'));
+  }
+
   const { name, link } = req.body;
 
   try {
@@ -33,6 +38,10 @@ export const createCard = async (req: IRequestWithUser, res: Response, next: Nex
 };
 
 export const deleteCard = async (req: IRequestWithUser, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    next(new BadRequestError('Не передан id текущего пользователя для удаления карточки'));
+  }
+
   const { cardId } = req.params;
 
   try {
@@ -61,6 +70,10 @@ const toggleLike = async (
   next: NextFunction,
   todo: TodoMethod,
 ) => {
+  if (!req.user) {
+    next(new BadRequestError('Не передан id текущего пользователя для установки или снятия лайка'));
+  }
+
   const { cardId } = req.params;
 
   try {
