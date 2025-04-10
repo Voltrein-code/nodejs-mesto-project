@@ -56,7 +56,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     const user = await User.create({
       name, about, avatar, email, password: hash,
     });
-    res.status(HttpStatusCode.Created).send({ data: user });
+    res.status(HttpStatusCode.Created).send({ data: user.deletePassword() });
   } catch (err) {
     if (err instanceof MongooseError.ValidationError) {
       next(new BadRequestError(err.message));
