@@ -29,6 +29,15 @@ export const validateId = celebrate({
   }),
 });
 
+export const validateCardId = celebrate({
+  [Segments.PARAMS]: Joi.object().keys({
+    cardId: Joi.string()
+      .required()
+      .custom((value, helpers) => (Types.ObjectId.isValid(value) ? value : helpers.message({
+        any: 'Передан невалидный id',
+      }))),
+  }),
+});
 export const validateUser = celebrate({
   [Segments.BODY]: Joi.object().keys({
     name: Joi.string().min(2).max(30).messages({
