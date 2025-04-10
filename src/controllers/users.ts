@@ -62,7 +62,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
   } catch (err) {
     if (err instanceof MongooseError.ValidationError) {
       next(new BadRequestError(err.message));
-    } else if (err instanceof MongoError && err.code === 11000) {
+    } else if ((err as MongoError).code === 11000) {
       next(new ConflictError('Пользователь с указанным email уже существует'));
     } else {
       next(err);
