@@ -1,7 +1,9 @@
 import { NextFunction, Request, Response } from 'express';
 import { Error as MongooseError } from 'mongoose';
+import { MongoError } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import ConflictError from '../errors/conflictError';
 import { IRequestWithUser } from '../types/express';
 import User from '../models/user';
 import { HttpStatusCode } from '../types/enums';
@@ -60,6 +62,8 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
   } catch (err) {
     if (err instanceof MongooseError.ValidationError) {
       next(new BadRequestError(err.message));
+    } else if (err instanceof MongoError && err.code === 11000) {
+      next(new ConflictError('Пользователь с указанным email уже существует'));
     } else {
       next(err);
     }
@@ -73,7 +77,7 @@ export const login = async (req: Request, res:Response, next: NextFunction) => {
     const user = await User.findUserByCredentials(email, password);
     const token = jwt.sign({ _id: user._id }, JWT_SECRET);
 
-    res.cookie('jwt', token, {
+    res.cookie('token', token, {
       maxAge: 86400, // 1 день
       httpOnly: true,
       sameSite: true,

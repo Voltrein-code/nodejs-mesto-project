@@ -52,7 +52,7 @@ userSchema
   .findUserByCredentials = async function findUserByCredentials(email: string, password: string) {
     const user = await this.findOne({ email }).select('+password');
 
-    if (!user || await bcrypt.compare(password, user.password)) {
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return Promise.reject(new UnauthorizedError('Передан не верный логин или пароль'));
     }
     return user;
